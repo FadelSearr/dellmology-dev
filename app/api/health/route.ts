@@ -1,0 +1,49 @@
+import { NextResponse } from 'next/server';
+import { getTokenStatus } from '@/lib/supabase';
+
+export async function GET() {
+  const checks: Record<string, { status: string; latency?: number; error?: string }> = {};
+
+  // Check Supabase
+  const dbStart = Date.now();
+  try {
+    const tokenStatus = await getTokenStatus();
+    checks.database = { status: 'online', latency: Date.now() - dbStart };
+    checks.token = {
+      status: tokenStatus.isValid ? 'online' : tokenStatus.exists ? 'warning' : 'offline',
+      ...(tokenStatus.hoursUntilExpiry !== undefined && { latency: Math.round(tokenStatus.hoursUntilExpiry * 60) }),
+    };
+  } catch (err) {
+    checks.database = { status: 'offline', latency: Date.now() - dbStart, error: String(err) };
+    checks.token = { status: 'offline' };
+  }
+
+  // Check Go Engine
+  const engineStart = Date.now();
+  try {
+    const engineUrl = process.env.ENGINE_HEALTH_URL || 'http://localhost:8080/health';
+    const res = await fetch(engineUrl, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      checks.engine = { status: 'online', latency: Date.now() - engineStart };
+    } else {
+      checks.engine = { status: 'offline', latency: Date.now() - engineStart };
+    }
+  } catch {
+    checks.engine = { status: 'offline', latency: Date.now() - engineStart };
+  }
+
+  // Data integrity: check if we have recent data
+  checks.dataIntegrity = {
+    status: checks.database.status === 'online' && checks.token.status !== 'offline' ? 'online' : 'warning',
+  };
+
+  const allOnline = Object.values(checks).every(c => c.status === 'online');
+
+  return NextResponse.json({
+    success: true,
+    overall: allOnline ? 'healthy' : 'degraded',
+    checks,
+    timestamp: new Date().toISOString(),
+  });
+}

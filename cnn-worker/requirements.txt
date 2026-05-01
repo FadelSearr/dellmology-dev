@@ -1,0 +1,6 @@
+fastapi==0.110.0
+uvicorn==0.27.1
+pydantic==2.6.3
+numpy==1.26.4
+# tensorflow==2.15.0  # Uncomment when deploying actual CNN model
+# Pillow==10.2.0      # Uncomment for image processing

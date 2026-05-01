@@ -1,0 +1,145 @@
+'use client';
+
+import { useState } from 'react';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import Canvas from './components/Canvas';
+import Tape from './components/Tape';
+import Brain from './components/Brain';
+import CombatMode from './components/CombatMode';
+import BacktestModal from './components/BacktestModal';
+import { useStockData, useWatchlist, useNarrative, useInfraHealth, useChartData } from '@/app/hooks/useData';
+import { useSSETicks } from '@/app/hooks/useSSE';
+
+export default function Home() {
+  const [selectedEmiten, setSelectedEmiten] = useState('BBRI');
+  const [screenerMode, setScreenerMode] = useState<'daytrade' | 'swing' | 'custom'>('daytrade');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(999999);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [combatMode, setCombatMode] = useState(false);
+  const [showBacktest, setShowBacktest] = useState(false);
+
+  // Real-time hooks
+  const { data: stockData, loading: stockLoading, error: stockError } = useStockData(selectedEmiten);
+  const { data: watchlistData, loading: watchlistLoading } = useWatchlist(screenerMode, minPrice, maxPrice);
+  const { data: chartData, atr, loading: chartLoading } = useChartData(selectedEmiten);
+  const sse = useSSETicks(50); // Get real-time HAKA/HAKI ticks
+
+  const topBuyers = (stockData?.topBuyers as any[]) || [];
+  const topSellers = (stockData?.topSellers as any[]) || [];
+  const price = (stockData?.price as number) || 0;
+
+  const { data: aiNarrative, loading: aiLoading } = useNarrative({
+    emiten: selectedEmiten,
+    price: price,
+    topBrokers: [...topBuyers, ...topSellers]
+  });
+  if (stockError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-canvas)', color: 'var(--text-main)', padding: 20, textAlign: 'center' }}>
+        <div style={{ padding: 30, background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 12, maxWidth: 400 }}>
+          <h2 style={{ color: 'var(--color-bearish)', marginBottom: 10 }}>⚠️ Real Data Disconnected</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
+            {stockError.includes('401') ? 'Token Stockbit kamu sudah expired. Silakan buka tab baru, login ke stockbit.com, lalu refresh halaman ini.' : stockError}
+          </p>
+          <button className="btn btn--primary" onClick={() => window.location.reload()} style={{ width: '100%' }}>
+            Muat Ulang
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stockLoading || watchlistLoading || !stockData) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-canvas)', color: 'var(--text-main)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div className="spinner" style={{ width: 40, height: 40, border: '3px solid var(--border-color)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: 2 }}>INITIALIZING REAL DATA...</div>
+          <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { 100% { transform: rotate(360deg); } }` }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Strictly use real data
+  const selectedStock = {
+    id: 1,
+    code: selectedEmiten,
+    name: (stockData.name as string) || selectedEmiten,
+    sector: (stockData.sector as string) || 'IDX',
+    price: (stockData.price as number) || 0,
+    change: (stockData.change as number) || 0,
+    changePercent: (stockData.changePercent as number) || 0,
+    ups: (stockData.ups as number) || 50
+  };
+
+  return (
+    <>
+      {/* Combat Mode Overlay */}
+      {combatMode && (
+        <CombatMode
+          emiten={selectedEmiten}
+          price={selectedStock.price}
+          ups={selectedStock.ups}
+          signal={selectedStock.ups >= 70 ? 'buy' : selectedStock.ups <= 30 ? 'sell' : 'neutral'}
+          regime={selectedStock.ups >= 60 ? 'uptrend' : selectedStock.ups <= 40 ? 'downtrend' : 'sideways'}
+          atr={atr}
+          stopLoss={selectedStock.price - (atr * 1.5)}
+          takeProfit={selectedStock.price + (atr * 2)}
+          killSwitch={false}
+          onClose={() => setCombatMode(false)}
+        />
+      )}
+
+      {/* Backtest Modal */}
+      <BacktestModal
+        emiten={selectedEmiten}
+        isOpen={showBacktest}
+        onClose={() => setShowBacktest(false)}
+        chartData={chartData}
+      />
+
+      {/* Main Grid */}
+      <div className="app-shell">
+        <Navbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onCombatMode={() => setCombatMode(true)}
+        />
+        <Sidebar
+          watchlist={watchlistData.length > 0 ? watchlistData : [{ code: selectedEmiten, name: selectedEmiten, price: stockData.price || 0, change: 0, ups: 50 }]}
+          selectedEmiten={selectedEmiten}
+          onSelectEmiten={setSelectedEmiten}
+          screenerMode={screenerMode}
+          onScreenerModeChange={setScreenerMode}
+          searchQuery={searchQuery}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          setMinPrice={setMinPrice}
+          setMaxPrice={setMaxPrice}
+        />
+        <Canvas selectedEmiten={selectedEmiten} selectedStock={selectedStock} stockData={stockData} chartData={chartData} chartLoading={chartLoading} />
+        <Tape 
+          selectedEmiten={selectedEmiten} 
+          topBuyers={topBuyers} 
+          topSellers={topSellers} 
+          zScore={stockData.zScore as number}
+          spoofingAlert={stockData.spoofingAlert as boolean}
+          washSaleAlert={stockData.washSaleAlert as boolean}
+        />
+        <Brain
+          selectedEmiten={selectedEmiten}
+          narrativeData={aiNarrative}
+          loading={aiLoading}
+          price={price}
+          atr={atr}
+          ups={selectedStock.ups}
+          signal={selectedStock.ups >= 70 ? 'buy' : selectedStock.ups <= 30 ? 'sell' : 'neutral'}
+          onRunBacktest={() => setShowBacktest(true)}
+        />
+      </div>
+    </>
+  );
+}

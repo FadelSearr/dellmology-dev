@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Dellmology Auth Helper",
+  "version": "1.0.0",
+  "description": "Intercepts session token from Stockbit for Dellmology Pro.",
+  "permissions": [
+    "webRequest",
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.stockbit.com/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
