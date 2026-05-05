@@ -42,6 +42,7 @@ export default function Canvas({ selectedEmiten, selectedStock, stockData, chart
     label: string; emoji: string; shouldTrade: boolean;
     voters: ConsensusVoter[]; description: string;
   } | null>(null);
+  const [cnnRegime, setCnnRegime] = useState<{ regime: string; confidence: number } | null>(null);
 
   // Fetch patterns
   useEffect(() => {
@@ -49,8 +50,18 @@ export default function Canvas({ selectedEmiten, selectedStock, stockData, chart
       try {
         const res = await fetch(`/api/pattern?emiten=${selectedEmiten}`);
         const json = await res.json();
-        if (json.success) setPatterns(json.data.patterns || []);
-      } catch { setPatterns([]); }
+        if (json.success) {
+          setPatterns(json.data.patterns || []);
+          if (json.data.cnnResult) {
+            setCnnRegime(json.data.cnnResult);
+          } else {
+            setCnnRegime(null);
+          }
+        }
+      } catch { 
+        setPatterns([]); 
+        setCnnRegime(null);
+      }
     }
     fetchPatterns();
   }, [selectedEmiten]);
@@ -167,12 +178,17 @@ export default function Canvas({ selectedEmiten, selectedStock, stockData, chart
     volumeFlow: 50,
     sentiment: 50,
     signal: selectedStock.ups >= 70 ? 'strong_buy' : selectedStock.ups <= 30 ? 'strong_sell' : 'neutral',
-    confidence: stockData?.killSwitchActive ? 'low' : 'high',
+    confidence: stockData?.incompleteData ? 'low' : stockData?.killSwitchActive ? 'low' : 'high',
   };
 
   const upsClass = ups.total >= 70 ? 'bullish' : ups.total >= 40 ? 'neutral' : 'bearish';
-  const regime = ups.total >= 60 ? 'uptrend' : ups.total <= 40 ? 'downtrend' : 'sideways';
+  
+  // Use CNN Model if available, otherwise fallback to static UPS logic
+  const regime = cnnRegime ? cnnRegime.regime : (ups.total >= 60 ? 'uptrend' : ups.total <= 40 ? 'downtrend' : 'sideways');
+  const regimeConfidence = cnnRegime ? `${cnnRegime.confidence}% (CNN)` : '';
+  
   const killSwitch = stockData?.killSwitchActive || false;
+  const incompleteData = stockData?.incompleteData || false;
 
   return (
     <main className="canvas" id="canvas" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -193,13 +209,18 @@ export default function Canvas({ selectedEmiten, selectedStock, stockData, chart
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {incompleteData && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 5, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.4)', color: '#eab308', fontSize: 10, fontWeight: 700, animation: 'livePulse 1s ease-in-out infinite' }}>
+              <AlertTriangle size={11} /> INCOMPLETE DATA
+            </span>
+          )}
           {killSwitch && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 5, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444', fontSize: 10, fontWeight: 700, animation: 'livePulse 1s ease-in-out infinite' }}>
               <AlertTriangle size={11} /> KILL-SWITCH
             </span>
           )}
           <span className={`regime-indicator regime-indicator--${regime}`}>
-            <TrendingUp size={12} /> {regime.toUpperCase()}
+            <TrendingUp size={12} /> {regime.toUpperCase()} {regimeConfidence}
           </span>
           <span className={`confidence-badge confidence-badge--${ups.confidence}`}>
             Confidence: {ups.confidence.toUpperCase()}

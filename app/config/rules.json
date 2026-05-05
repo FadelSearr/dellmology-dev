@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "upsThresholds": {
+    "strongBuy": 80,
+    "buy": 60,
+    "sell": 40,
+    "strongSell": 20
+  },
+  "anomalyThresholds": {
+    "zScoreHigh": 2.0,
+    "volatilityAtrRatio": 1.5
+  },
+  "killSwitch": {
+    "rocPercentDrop5Min": -3.0
+  }
+}

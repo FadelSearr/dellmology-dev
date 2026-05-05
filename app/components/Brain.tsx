@@ -67,14 +67,20 @@ export default function Brain({ selectedEmiten, narrativeData, loading, price, a
           </>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
-          <div style={{ padding: 8, background: 'var(--color-bullish-glow)', borderRadius: 6, fontSize: 11 }}>
-            <div style={{ fontWeight: 700, color: 'var(--color-bullish)', marginBottom: 4 }}>🐂 Bull Case</div>
-            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{n.bullCase}</div>
+        {/* ── Adversarial Prompting Split View ── */}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>⚡ Adversarial Mode (AI vs AI)</span>
           </div>
-          <div style={{ padding: 8, background: 'var(--color-bearish-glow)', borderRadius: 6, fontSize: 11 }}>
-            <div style={{ fontWeight: 700, color: 'var(--color-bearish)', marginBottom: 4 }}>🐻 Bear Case</div>
-            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{n.bearCase}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ padding: 8, background: 'var(--color-bullish-glow)', border: '1px solid rgba(46,189,133,0.2)', borderRadius: 6, fontSize: 11 }}>
+              <div style={{ fontWeight: 800, color: 'var(--color-bullish)', marginBottom: 4 }}>🐂 BULL CASE</div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{n.bullCase}</div>
+            </div>
+            <div style={{ padding: 8, background: 'var(--color-bearish-glow)', border: '1px solid rgba(224,41,74,0.2)', borderRadius: 6, fontSize: 11 }}>
+              <div style={{ fontWeight: 800, color: 'var(--color-bearish)', marginBottom: 4 }}>🐻 BEAR CASE</div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{n.bearCase}</div>
+            </div>
           </div>
         </div>
       </div>

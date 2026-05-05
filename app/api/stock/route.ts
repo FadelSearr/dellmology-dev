@@ -5,6 +5,7 @@ import {
   calculateZScore, detectWashSale, adjustUPSThreshold,
   checkRoCKillSwitch, multiTimeframeValidation,
 } from '@/lib/analysis';
+import rules from '@/app/config/rules.json';
 
 /* ══════════════════════════════════════════════════════════════
    Stock Data Route — Dellmology Pro
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest) {
 
     // 6. Global Correlation Kill-Switch (IHSG crash)
     const upsThreshold = adjustUPSThreshold(ihsgPct);
-    const globalKillSwitch = ihsgPct <= -1.5;
+    const globalKillSwitch = ihsgPct <= rules.killSwitch.rocPercentDrop5Min;
 
     // 7. Multi-Timeframe Validation
     // Compute signals at different "simulated" timeframes using different RSI periods
@@ -192,6 +193,13 @@ export async function GET(request: NextRequest) {
     if (mtfResult.isValid && mtfResult.consensus.includes('BULLISH')) ups += 10;
     else if (mtfResult.isValid && mtfResult.consensus.includes('BEARISH')) ups -= 10;
 
+    // ── Data Integrity Shield (Gap Detection) ──
+    // Incomplete Data if orderbook is completely empty during market hours
+    const incompleteData = (totalBid === 0 && totalOffer === 0) || (obData === null);
+    if (incompleteData) {
+      ups = 50; // Neutralize UPS on missing data to prevent hallucination
+    }
+    
     ups = Math.min(Math.max(Math.round(ups), 5), 95);
 
     // Kill-switch flags
@@ -215,6 +223,8 @@ export async function GET(request: NextRequest) {
         churnRatio: washSaleResult.churnRatio,
         artificialLiquidity,
         concentrationRatio: parseFloat(concentrationRatio.toFixed(2)),
+        // Integrity Shield
+        incompleteData,
         // Kill-switches
         killSwitchActive,
         rocKillSwitch: rocResult,
